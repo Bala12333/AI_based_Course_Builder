@@ -1,0 +1,132 @@
+{
+  "courseTitle": "Full Stack Web Development: From Zero to Deployment",
+  "modules": [
+    {
+      "description": "Master the building blocks of interactive web pages.",
+      "lessons": [
+        {
+          "content": "Learn HTML tags, semantic elements, and best practices for creating well-structured web pages.",
+          "duration": "60 minutes",
+          "lessonTitle": "HTML: Structuring Web Pages"
+        },
+        {
+          "content": "Explore CSS selectors, properties, and techniques for styling layouts, typography, and responsiveness.",
+          "duration": "90 minutes",
+          "lessonTitle": "CSS: Styling Web Pages"
+        },
+        {
+          "content": "Learn JavaScript fundamentals, DOM manipulation, event handling, and basic animations.",
+          "duration": "120 minutes",
+          "lessonTitle": "JavaScript: Adding Interactivity"
+        }
+      ],
+      "moduleTitle": "Frontend Fundamentals: HTML, CSS, and JavaScript",
+      "quizzes": [
+        {
+          "correctAnswer": "A",
+          "explanation": "The <p> tag is specifically designed for creating paragraphs of text.",
+          "options": [
+            "<p>",
+            "<div>",
+            "<h1>",
+            "<span>"
+          ],
+          "question": "Which HTML tag is used to define a paragraph?"
+        }
+      ]
+    },
+    {
+      "description": "Build robust and scalable APIs using Node.js and Express.js.",
+      "lessons": [
+        {
+          "content": "Learn about Node.js, its event loop, and its role in server-side JavaScript development.",
+          "duration": "45 minutes",
+          "lessonTitle": "Introduction to Node.js"
+        },
+        {
+          "content": "Learn to create RESTful APIs using Express.js, handling requests, responses, and routing.",
+          "duration": "90 minutes",
+          "lessonTitle": "Building APIs with Express.js"
+        },
+        {
+          "content": "Integrate a MongoDB database with your Express.js API for data persistence.",
+          "duration": "120 minutes",
+          "lessonTitle": "Database Integration with MongoDB"
+        }
+      ],
+      "moduleTitle": "Backend Development with Node.js and Express.js",
+      "quizzes": [
+        {
+          "correctAnswer": "C",
+          "explanation": "Express.js is a Node.js web application framework for building APIs and web applications.",
+          "options": [
+            "Front-end framework",
+            "Database system",
+            "Web application framework",
+            "Server-side language"
+          ],
+          "question": "What is the primary function of Express.js?"
+        },
+        {
+          "correctAnswer": "C",
+          "explanation": "A RESTful API follows architectural constraints to create predictable and scalable web services.",
+          "options": [
+            "A type of database",
+            "A front-end technology",
+            "A standardized way of building web services",
+            "A server-side programming language"
+          ],
+          "question": "What is a RESTful API?"
+        }
+      ]
+    },
+    {
+      "description": "Learn how to connect your frontend and backend applications.",
+      "lessons": [
+        {
+          "content": "Learn how to use the Fetch API to make HTTP requests to your backend API.",
+          "duration": "60 minutes",
+          "lessonTitle": "Fetching Data with Fetch API"
+        },
+        {
+          "content": "Learn how to handle successful and unsuccessful API responses and display data on your frontend.",
+          "duration": "60 minutes",
+          "lessonTitle": "Handling API Responses"
+        }
+      ],
+      "moduleTitle": "Connecting Frontend and Backend",
+      "quizzes": [
+        {
+          "correctAnswer": "B",
+          "explanation": "POST is used to send data to the server to create or update resources.",
+          "options": [
+            "GET",
+            "POST",
+            "PUT",
+            "DELETE"
+          ],
+          "question": "What HTTP method is typically used to send data to a server?"
+        }
+      ]
+    },
+    {
+      "description": "Learn to deploy your application and manage your code using Git.",
+      "lessons": [
+        {
+          "content": "Learn the basics of Git, including cloning, committing, and pushing changes.",
+          "duration": "60 minutes",
+          "lessonTitle": "Introduction to Git"
+        },
+        {
+          "content": "Learn how to deploy your application to a cloud hosting platform like Netlify or Vercel.",
+          "duration": "90 minutes",
+          "lessonTitle": "Deploying to Netlify or Vercel"
+        }
+      ],
+      "moduleTitle": "Deployment and Version Control",
+      "quizzes": []
+    }
+  ],
+  "courseId": "course_1756913681223",
+  "savedAt": "2025-09-03T15:34:41.223Z"
+}

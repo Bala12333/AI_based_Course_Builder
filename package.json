@@ -1,0 +1,40 @@
+{
+  "name": "ai-course-builder",
+  "version": "1.0.0",
+  "description": "Complete AI Course Builder application with microservices architecture",
+  "main": "index.js",
+  "scripts": {
+    "install-all": "npm install && cd backend/ai-service && pip install -r requirements.txt && cd ../api-gateway && npm install && cd ../../frontend && npm install",
+    "start-ai": "cd backend/ai-service && python app.py",
+    "start-gateway": "cd backend/api-gateway && npm run dev",
+    "start-frontend": "cd frontend && npm run dev",
+    "start-all": "concurrently \"npm run start-ai\" \"npm run start-gateway\" \"npm run start-frontend\"",
+    "test-services": "node test-services.js",
+    "build": "cd frontend && npm run build",
+    "clean": "rimraf node_modules backend/*/node_modules frontend/node_modules backend/ai-service/__pycache__ backend/ai-service/*.pyc"
+  },
+  "keywords": [
+    "ai",
+    "course-builder",
+    "microservices",
+    "react",
+    "nodejs",
+    "python",
+    "flask",
+    "gemini-ai"
+  ],
+  "author": "AI Course Builder Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "rimraf": "^5.0.5"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "workspaces": [
+    "backend/api-gateway",
+    "frontend"
+  ]
+}
+
