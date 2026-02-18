@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { auth, googleProvider } from './firebase';
+import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 
 // Firebase configuration (placeholder - replace with your actual config)
 const firebaseConfig = {
@@ -18,16 +20,36 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState('');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [revealedAnswers, setRevealedAnswers] = useState(() => new Set());
-  const [expandedModules, setExpandedModules] = useState(() => new Set());
+  // Authentication state
+  const [user, setUser] = useState(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
 
-  // Initialize Firebase (placeholder)
+  // Initialize Firebase Auth listener
   useEffect(() => {
-    // TODO: Initialize Firebase and handle authentication
-    // For now, we'll simulate authenticated state
-    setIsAuthenticated(true);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoadingAuth(false);
+    });
+    return () => unsubscribe();
   }, []);
+
+  const handleLogin = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      console.error("Error signing in:", error);
+      setError("Failed to sign in. Please try again.");
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setCourseData(null); // Clear data on logout
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
 
   /**
    * Handle course generation request
@@ -50,10 +72,10 @@ function App() {
 
       setCourseData(response.data);
       setMessage('Course generated successfully! You can now save it or generate a new one.');
-      
+
     } catch (err) {
       console.error('Error generating course:', err);
-      
+
       if (err.response) {
         setError(err.response.data.message || 'Failed to generate course');
       } else if (err.code === 'ECONNREFUSED') {
@@ -74,16 +96,30 @@ function App() {
     if (!courseData) return;
 
     try {
-      const response = await axios.post('/api/save-course', courseData);
+      const token = user ? await user.getIdToken() : null;
+      console.log('Sending token:', token); // Debugging
+
+      const response = await axios.post('/api/save-course',
+        {
+          ...courseData,
+          userId: user?.uid,
+          userEmail: user?.email
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
       setMessage('Course saved successfully!');
-      
+
       // Clear the form after saving
       setTimeout(() => {
         setCourseData(null);
         setPrompt('');
         setMessage('');
       }, 2000);
-      
+
     } catch (err) {
       console.error('Error saving course:', err);
       setError('Failed to save course. Please try again.');
@@ -114,7 +150,7 @@ function App() {
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-lg">
           <h1 className="text-3xl font-bold mb-2">{courseData.courseTitle}</h1>
           <p className="text-blue-100">
-            {courseData.modules?.length || 0} modules • 
+            {courseData.modules?.length || 0} modules •
             {courseData.modules?.reduce((total, module) => total + (module.lessons?.length || 0), 0) || 0} lessons
           </p>
         </div>
@@ -256,8 +292,34 @@ function App() {
               </div>
               <h1 className="text-2xl font-bold text-gray-900">Course Builder</h1>
             </div>
-            <div className="text-sm text-gray-500">
-              Powered by Gemini AI
+            <div className="flex items-center space-x-4">
+              {loadingAuth ? (
+                <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse"></div>
+              ) : user ? (
+                <div className="flex items-center space-x-3">
+                  <span className="text-gray-700 font-medium hidden md:block">{user.displayName}</span>
+                  {user.photoURL ? (
+                    <img src={user.photoURL} alt={user.displayName} className="w-8 h-8 rounded-full border border-gray-300" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold">
+                      {user.displayName ? user.displayName.charAt(0) : 'U'}
+                    </div>
+                  )}
+                  <button
+                    onClick={handleLogout}
+                    className="text-sm text-gray-500 hover:text-red-600 font-medium transition-colors"
+                  >
+                    Logout
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleLogin}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm"
+                >
+                  Sign In
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -291,7 +353,7 @@ function App() {
                   onChange={(e) => setPrompt(e.target.value)}
                   disabled={isLoading}
                 />
-                
+
                 <button
                   onClick={handleGenerateCourse}
                   disabled={isLoading || !prompt.trim()}

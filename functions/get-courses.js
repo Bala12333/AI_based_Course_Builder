@@ -4,7 +4,6 @@ require('dotenv').config();
 // Initialize Firebase Admin SDK if not already initialized
 if (!admin.apps.length) {
     if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-        // Use service account from environment variable (Best for Netlify)
         try {
             const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
             admin.initializeApp({
@@ -14,7 +13,6 @@ if (!admin.apps.length) {
             console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT:", e);
         }
     } else {
-        // Fallback or dev mode (assumes GOOGLE_APPLICATION_CREDENTIALS or default env)
         admin.initializeApp();
     }
 }
@@ -26,14 +24,14 @@ exports.handler = async (event, context) => {
     const headers = {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS'
+        'Access-Control-Allow-Methods': 'GET, OPTIONS'
     };
 
     if (event.httpMethod === 'OPTIONS') {
         return { statusCode: 200, headers, body: '' };
     }
 
-    if (event.httpMethod !== 'POST') {
+    if (event.httpMethod !== 'GET') {
         return {
             statusCode: 405,
             headers,
@@ -65,35 +63,28 @@ exports.handler = async (event, context) => {
         }
 
         const userId = decodedToken.uid;
-        const data = JSON.parse(event.body);
 
-        // Calculate timestamp
-        const timestamp = admin.firestore.FieldValue.serverTimestamp();
+        const snapshot = await db.collection('courses')
+            .where('userId', '==', userId)
+            .orderBy('createdAt', 'desc')
+            .get();
 
-        const courseData = {
-            ...data,
-            userId,
-            createdAt: timestamp,
-            updatedAt: timestamp
-        };
-
-        const docRef = await db.collection('courses').add(courseData);
+        const courses = [];
+        snapshot.forEach(doc => {
+            courses.push({ id: doc.id, ...doc.data() });
+        });
 
         return {
             statusCode: 200,
             headers,
-            body: JSON.stringify({
-                success: true,
-                courseId: docRef.id,
-                message: 'Course saved successfully to Firestore'
-            }),
+            body: JSON.stringify(courses),
         };
     } catch (error) {
-        console.error('Error saving course:', error);
+        console.error('Error fetching courses:', error);
         return {
             statusCode: 500,
             headers,
-            body: JSON.stringify({ error: 'Failed to save course', details: error.message }),
+            body: JSON.stringify({ error: 'Failed to fetch courses', details: error.message }),
         };
     }
 };

@@ -19,8 +19,39 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Ensure data directory exists for simple JSON persistence
-if (!fs.existsSync(DATA_DIR)) {
+// Firebase Admin Setup
+const admin = require('firebase-admin');
+let db = null;
+
+try {
+  // Check for local service-account.json file first (Easier for local dev)
+  const localServiceAccountPath = path.join(__dirname, 'service-account.json');
+
+  if (fs.existsSync(localServiceAccountPath)) {
+    const serviceAccount = require(localServiceAccountPath);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    db = admin.firestore();
+    console.log("🔥 Firebase Firestore initialized using local service-account.json");
+  }
+  // Then check environment variable (Best for production/Netlify)
+  else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    db = admin.firestore();
+    console.log("🔥 Firebase Firestore initialized from environment variable");
+  } else {
+    console.warn("⚠️ No Firebase credentials found. Falling back to local file storage (data/ directory).");
+  }
+} catch (error) {
+  console.error("❌ Failed to initialize Firebase:", error.message);
+}
+
+// Ensure data directory exists for simple JSON persistence (Fallback)
+if (!db && !fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
@@ -52,7 +83,7 @@ app.get('/health', (req, res) => {
 app.post('/api/generate-course', async (req, res) => {
   try {
     const { prompt } = req.body;
-    
+
     // Validate request
     if (!prompt || typeof prompt !== 'string') {
       return res.status(400).json({
@@ -60,7 +91,7 @@ app.post('/api/generate-course', async (req, res) => {
         required: 'prompt (string)'
       });
     }
-    
+
     console.log(`Received course generation request: ${prompt.substring(0, 100)}...`);
 
     // Return cached result if available and fresh
@@ -68,7 +99,7 @@ app.post('/api/generate-course', async (req, res) => {
     if (cached && cached.expiresAt > Date.now()) {
       return res.json(cached.data);
     }
-    
+
     // Forward request to AI service
     const aiResponse = await axios.post(`${AI_SERVICE_URL}/generate`, {
       prompt: prompt
@@ -78,16 +109,16 @@ app.post('/api/generate-course', async (req, res) => {
         'Content-Type': 'application/json'
       }
     });
-    
+
     console.log('Course generated successfully by AI service');
-    
+
     // Cache and return the AI service response
     promptCache.set(prompt, { data: aiResponse.data, expiresAt: Date.now() + CACHE_TTL_MS });
     res.json(aiResponse.data);
-    
+
   } catch (error) {
     console.error('Error generating course:', error.message);
-    
+
     if (error.code === 'ECONNREFUSED') {
       return res.status(503).json({
         error: 'AI service is unavailable',
@@ -95,7 +126,7 @@ app.post('/api/generate-course', async (req, res) => {
         details: `Failed to connect to ${AI_SERVICE_URL}`
       });
     }
-    
+
     if (error.response) {
       // AI service returned an error
       return res.status(error.response.status).json({
@@ -104,7 +135,7 @@ app.post('/api/generate-course', async (req, res) => {
         details: error.response.data
       });
     }
-    
+
     if (error.code === 'ETIMEDOUT') {
       return res.status(408).json({
         error: 'Request timeout',
@@ -112,7 +143,7 @@ app.post('/api/generate-course', async (req, res) => {
         details: 'Request timed out after 60 seconds'
       });
     }
-    
+
     // Generic error
     res.status(500).json({
       error: 'Internal server error',
@@ -124,12 +155,12 @@ app.post('/api/generate-course', async (req, res) => {
 
 /**
  * Save course endpoint
- * Saves course data to Firestore (placeholder for future implementation)
+ * Saves course data to Firestore or local file system
  */
 app.post('/api/save-course', async (req, res) => {
   try {
     const courseData = req.body;
-    
+
     // Validate course data
     if (!courseData || !courseData.courseTitle) {
       return res.status(400).json({
@@ -137,21 +168,55 @@ app.post('/api/save-course', async (req, res) => {
         required: 'courseTitle and course structure'
       });
     }
-    
+
+    // Verify Auth Token if using Firebase
+    let userId = courseData.userId;
+    if (db) {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const idToken = authHeader.split('Bearer ')[1];
+        try {
+          const decodedToken = await admin.auth().verifyIdToken(idToken);
+          userId = decodedToken.uid;
+        } catch (e) {
+          console.error("Token verification failed:", e.message);
+          return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+        }
+      }
+    }
+
     console.log(`Received course save request for: ${courseData.courseTitle}`);
 
-    const courseId = `course_${Date.now()}`;
-    const filePath = path.join(DATA_DIR, `${courseId}.json`);
-    const payload = { ...courseData, courseId, savedAt: new Date().toISOString() };
-    fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf-8');
+    if (db) {
+      // Firestore Save
+      const timestamp = admin.firestore.FieldValue.serverTimestamp();
+      const docRef = await db.collection('courses').add({
+        ...courseData,
+        userId,
+        createdAt: timestamp,
+        updatedAt: timestamp
+      });
 
-    res.json({
-      success: true,
-      message: 'Course saved successfully',
-      courseId,
-      savedAt: payload.savedAt
-    });
-    
+      return res.json({
+        success: true,
+        message: 'Course saved successfully to Firestore',
+        courseId: docRef.id
+      });
+    } else {
+      // Local File Save (Fallback)
+      const courseId = `course_${Date.now()}`;
+      const filePath = path.join(DATA_DIR, `${courseId}.json`);
+      const payload = { ...courseData, courseId, savedAt: new Date().toISOString() };
+      fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf-8');
+
+      return res.json({
+        success: true,
+        message: 'Course saved successfully (Local)',
+        courseId,
+        savedAt: payload.savedAt
+      });
+    }
+
   } catch (error) {
     console.error('Error saving course:', error.message);
     res.status(500).json({
@@ -163,15 +228,48 @@ app.post('/api/save-course', async (req, res) => {
 });
 
 /**
- * Get saved courses endpoint (placeholder)
+ * Get saved courses endpoint
  */
 app.get('/api/courses', async (req, res) => {
   try {
-    const files = fs.readdirSync(DATA_DIR).filter(f => f.endsWith('.json'));
-    const courses = files.map(f => JSON.parse(fs.readFileSync(path.join(DATA_DIR, f), 'utf-8')));
-    courses.sort((a, b) => (b.savedAt || '').localeCompare(a.savedAt || ''));
-    res.json({ courses });
-    
+    if (db) {
+      // Firestore Fetch
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Unauthorized: Missing token' });
+      }
+
+      const idToken = authHeader.split('Bearer ')[1];
+      let userId;
+      try {
+        const decodedToken = await admin.auth().verifyIdToken(idToken);
+        userId = decodedToken.uid;
+      } catch (e) {
+        return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+      }
+
+      const snapshot = await db.collection('courses')
+        .where('userId', '==', userId)
+        .orderBy('createdAt', 'desc')
+        .get();
+
+      const courses = [];
+      snapshot.forEach(doc => {
+        courses.push({ id: doc.id, ...doc.data() });
+      });
+      return res.json({ courses });
+
+    } else {
+      // Local File Fetch
+      if (!fs.existsSync(DATA_DIR)) {
+        return res.json({ courses: [] });
+      }
+      const files = fs.readdirSync(DATA_DIR).filter(f => f.endsWith('.json'));
+      const courses = files.map(f => JSON.parse(fs.readFileSync(path.join(DATA_DIR, f), 'utf-8')));
+      courses.sort((a, b) => (b.savedAt || '').localeCompare(a.savedAt || ''));
+      res.json({ courses });
+    }
+
   } catch (error) {
     console.error('Error fetching courses:', error.message);
     res.status(500).json({
