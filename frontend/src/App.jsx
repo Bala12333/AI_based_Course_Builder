@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { auth, googleProvider } from './firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import MyCourses from './components/MyCourses';
 
 // Firebase configuration (placeholder - replace with your actual config)
 const firebaseConfig = {
@@ -23,6 +24,7 @@ function App() {
   // Authentication state
   const [user, setUser] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
+  const [currentView, setCurrentView] = useState('generator'); // 'generator' or 'my-courses'
 
   // Initialize Firebase Auth listener
   useEffect(() => {
@@ -293,6 +295,23 @@ function App() {
               <h1 className="text-2xl font-bold text-gray-900">Course Builder</h1>
             </div>
             <div className="flex items-center space-x-4">
+              {user && (
+                <nav className="flex space-x-2 mr-4">
+                  <button
+                    onClick={() => setCurrentView('generator')}
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${currentView === 'generator' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
+                  >
+                    Create
+                  </button>
+                  <button
+                    onClick={() => setCurrentView('my-courses')}
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${currentView === 'my-courses' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
+                  >
+                    My Courses
+                  </button>
+                </nav>
+              )}
+
               {loadingAuth ? (
                 <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse"></div>
               ) : user ? (
@@ -327,92 +346,99 @@ function App() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Course Generation Form */}
-        {!courseData && (
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                Create Your Perfect Course with AI
-              </h2>
-              <p className="text-lg text-gray-600">
-                Describe what you want to teach, and our AI will generate a comprehensive course structure with modules, lessons, and quizzes.
-              </p>
-            </div>
 
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="space-y-4">
-                <label htmlFor="prompt" className="block text-sm font-medium text-gray-700">
-                  Course Description
-                </label>
-                <textarea
-                  id="prompt"
-                  rows="6"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Describe the course you want to create. For example: 'Create a course on JavaScript fundamentals for beginners covering variables, functions, and DOM manipulation'"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  disabled={isLoading}
-                />
-
-                <button
-                  onClick={handleGenerateCourse}
-                  disabled={isLoading || !prompt.trim()}
-                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white py-3 px-6 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
-                >
-                  {isLoading ? (
-                    <>
-                      <div className="spinner"></div>
-                      <span>Generating Course...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>🚀 Generate Course</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Error Display */}
-        {error && (
-          <div className="max-w-4xl mx-auto mt-6">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
+        {currentView === 'my-courses' && user ? (
+          <MyCourses />
+        ) : (
+          <>
+            {/* Course Generation Form */}
+            {!courseData && (
+              <div className="max-w-4xl mx-auto">
+                <div className="text-center mb-8">
+                  <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                    Create Your Perfect Course with AI
+                  </h2>
+                  <p className="text-lg text-gray-600">
+                    Describe what you want to teach, and our AI will generate a comprehensive course structure with modules, lessons, and quizzes.
+                  </p>
                 </div>
-                <div className="ml-3">
-                  <p className="text-sm text-red-800">{error}</p>
+
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <div className="space-y-4">
+                    <label htmlFor="prompt" className="block text-sm font-medium text-gray-700">
+                      Course Description
+                    </label>
+                    <textarea
+                      id="prompt"
+                      rows="6"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Describe the course you want to create. For example: 'Create a course on JavaScript fundamentals for beginners covering variables, functions, and DOM manipulation'"
+                      value={prompt}
+                      onChange={(e) => setPrompt(e.target.value)}
+                      disabled={isLoading}
+                    />
+
+                    <button
+                      onClick={handleGenerateCourse}
+                      disabled={isLoading || !prompt.trim()}
+                      className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white py-3 px-6 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
+                    >
+                      {isLoading ? (
+                        <>
+                          <div className="spinner"></div>
+                          <span>Generating Course...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>🚀 Generate Course</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* Success Message */}
-        {message && (
-          <div className="max-w-4xl mx-auto mt-6">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-green-800">{message}</p>
+            {/* Error Display */}
+            {error && (
+              <div className="max-w-4xl mx-auto mt-6">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-red-800">{error}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* Generated Course Content */}
-        {courseData && renderCourseContent()}
+            {/* Success Message */}
+            {message && (
+              <div className="max-w-4xl mx-auto mt-6">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-green-800">{message}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Generated Course Content */}
+            {courseData && renderCourseContent()}
+          </>
+        )}
       </main>
 
       {/* Footer */}
