@@ -23,13 +23,17 @@ const MyCourses = () => {
                 return;
             }
 
+            console.log("Fetching courses for user:", user.uid);
             const token = await user.getIdToken();
+
             // Ensure we hit the API Gateway which forwards to Firestore or Local Storage
             const response = await axios.get('/api/courses', {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
             });
+
+            console.log("Courses response:", response.data);
 
             // Handle response structure (some implementations return array directly, others { courses: [] })
             const coursesData = Array.isArray(response.data) ? response.data : (response.data.courses || []);
@@ -41,7 +45,7 @@ const MyCourses = () => {
             if (err.response && err.response.status === 404) {
                 setCourses([]);
             } else {
-                setError("Failed to load your courses. Please try again later.");
+                setError(`Failed to load your courses: ${err.message || 'Unknown error'}`);
             }
         } finally {
             setLoading(false);
@@ -49,65 +53,70 @@ const MyCourses = () => {
     };
 
     const handleExportPDF = (course) => {
-        const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const margin = 20;
-        let yPos = 20;
+        try {
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const margin = 20;
+            let yPos = 20;
 
-        // Title
-        doc.setFontSize(22);
-        doc.setTextColor(40, 40, 100);
-        doc.text(course.courseTitle, margin, yPos);
-        yPos += 15;
+            // Title
+            doc.setFontSize(22);
+            doc.setTextColor(40, 40, 100);
+            doc.text(course.courseTitle, margin, yPos);
+            yPos += 15;
 
-        // Description
-        if (course.description) {
-            doc.setFontSize(12);
-            doc.setTextColor(60, 60, 60);
-            const splitDesc = doc.splitTextToSize(course.description, pageWidth - (margin * 2));
-            doc.text(splitDesc, margin, yPos);
-            yPos += (splitDesc.length * 7) + 10;
+            // Description
+            if (course.description) {
+                doc.setFontSize(12);
+                doc.setTextColor(60, 60, 60);
+                const splitDesc = doc.splitTextToSize(course.description, pageWidth - (margin * 2));
+                doc.text(splitDesc, margin, yPos);
+                yPos += (splitDesc.length * 7) + 10;
+            }
+
+            // Modules
+            if (course.modules) {
+                course.modules.forEach((module, mIndex) => {
+                    // Check for page break
+                    if (yPos > 250) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+
+                    // Module Title
+                    doc.setFontSize(16);
+                    doc.setTextColor(0, 50, 150);
+                    doc.text(`Module ${mIndex + 1}: ${module.moduleTitle}`, margin, yPos);
+                    yPos += 10;
+
+                    // Lessons
+                    if (module.lessons) {
+                        module.lessons.forEach((lesson, lIndex) => {
+                            if (yPos > 270) {
+                                doc.addPage();
+                                yPos = 20;
+                            }
+                            doc.setFontSize(14);
+                            doc.setTextColor(0, 0, 0);
+                            doc.text(`${lIndex + 1}. ${lesson.lessonTitle}`, margin + 5, yPos);
+                            yPos += 7;
+
+                            doc.setFontSize(11);
+                            doc.setTextColor(80, 80, 80);
+                            const content = doc.splitTextToSize(lesson.content, pageWidth - (margin * 2) - 10);
+                            doc.text(content, margin + 5, yPos);
+                            yPos += (content.length * 6) + 10;
+                        });
+                    }
+                    yPos += 5;
+                });
+            }
+
+            doc.save(`${course.courseTitle.replace(/\s+/g, '_')}_Course.pdf`);
+        } catch (pdfErr) {
+            console.error("Error generating PDF:", pdfErr);
+            alert("Failed to generate PDF. Please check console for details.");
         }
-
-        // Modules
-        if (course.modules) {
-            course.modules.forEach((module, mIndex) => {
-                // Check for page break
-                if (yPos > 250) {
-                    doc.addPage();
-                    yPos = 20;
-                }
-
-                // Module Title
-                doc.setFontSize(16);
-                doc.setTextColor(0, 50, 150);
-                doc.text(`Module ${mIndex + 1}: ${module.moduleTitle}`, margin, yPos);
-                yPos += 10;
-
-                // Lessons
-                if (module.lessons) {
-                    module.lessons.forEach((lesson, lIndex) => {
-                        if (yPos > 270) {
-                            doc.addPage();
-                            yPos = 20;
-                        }
-                        doc.setFontSize(14);
-                        doc.setTextColor(0, 0, 0);
-                        doc.text(`${lIndex + 1}. ${lesson.lessonTitle}`, margin + 5, yPos);
-                        yPos += 7;
-
-                        doc.setFontSize(11);
-                        doc.setTextColor(80, 80, 80);
-                        const content = doc.splitTextToSize(lesson.content, pageWidth - (margin * 2) - 10);
-                        doc.text(content, margin + 5, yPos);
-                        yPos += (content.length * 6) + 10;
-                    });
-                }
-                yPos += 5;
-            });
-        }
-
-        doc.save(`${course.courseTitle.replace(/\s+/g, '_')}_Course.pdf`);
     };
 
     if (loading) {
@@ -121,8 +130,9 @@ const MyCourses = () => {
     if (error) {
         return (
             <div className="text-center p-8 bg-red-50 rounded-lg">
-                <p className="text-red-600">{error}</p>
-                <button onClick={fetchCourses} className="mt-4 text-blue-600 hover:underline">Try Again</button>
+                <p className="text-red-600 font-semibold">Error Loading Courses</p>
+                <p className="text-red-500 text-sm mt-1 mb-4">{error}</p>
+                <button onClick={fetchCourses} className="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">Try Again</button>
             </div>
         );
     }
@@ -131,8 +141,8 @@ const MyCourses = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-gray-800">My Courses</h2>
-                <button onClick={fetchCourses} className="text-sm text-gray-500 hover:text-blue-600">
-                    Refresh
+                <button onClick={fetchCourses} className="text-sm text-gray-500 hover:text-blue-600 flex items-center gap-1">
+                    <span>🔄</span> Refresh
                 </button>
             </div>
 

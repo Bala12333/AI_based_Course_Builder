@@ -14,7 +14,7 @@ CORS(app)
 
 # Configure Gemini API
 GEMINI_API_KEY = "AIzaSyBStjv0hH9JNCoDLJ529MNVE9rHDkuoyzI"
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-pro")
 genai.configure(api_key=GEMINI_API_KEY)
 
 # Define the response schema for structured course generation
@@ -115,25 +115,23 @@ def generate_course():
 
         response = None
         tried_models = []
-        for attempt, model_name in enumerate([GEMINI_MODEL, 'gemini-1.5-flash'] if GEMINI_MODEL != 'gemini-1.5-flash' else [GEMINI_MODEL]):
+        for attempt, model_name in enumerate([GEMINI_MODEL, 'gemini-pro'] if GEMINI_MODEL != 'gemini-pro' else [GEMINI_MODEL]):
             tried_models.append(model_name)
             try:
-                response = try_generate(model_name)
+                # Configure the model for this attempt
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(full_prompt)
                 break
             except Exception as e:
                 err_str = str(e)
+                print(f"Attempt failed with model {model_name}: {err_str}")
+                
                 if '429' in err_str or 'quota' in err_str.lower():
-                    # Respect suggested retry delay if available
-                    delay_seconds = 5
-                    for token in err_str.split():
-                        if token.isdigit():
-                            delay_seconds = min(15, max(delay_seconds, int(token)))
-                            break
-                    if attempt == 0 and model_name != 'gemini-1.5-flash':
-                        time.sleep(1)
-                        continue
-                # For other errors or if last attempt, re-raise
-                if attempt == (len([GEMINI_MODEL, 'gemini-1.5-flash'] if GEMINI_MODEL != 'gemini-1.5-flash' else [GEMINI_MODEL]) - 1):
+                    time.sleep(2)
+                    continue
+                
+                # Check if it was the last attempt
+                if attempt == (len([GEMINI_MODEL, 'gemini-pro'] if GEMINI_MODEL != 'gemini-pro' else [GEMINI_MODEL]) - 1):
                     raise
         if response is None:
             return jsonify({"error": "Failed to generate response", "triedModels": tried_models}), 503
