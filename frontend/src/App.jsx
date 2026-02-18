@@ -81,7 +81,7 @@ function App() {
     try {
       const response = await axios.post('/api/generate-course', {
         prompt: prompt.trim()
-      });
+      }, { timeout: 300000 }); // 5 minute timeout
 
       setCourseData(response.data);
       setMessage('Course generated successfully! You can now save it or generate a new one.');

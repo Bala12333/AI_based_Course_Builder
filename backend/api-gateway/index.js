@@ -104,7 +104,7 @@ app.post('/api/generate-course', async (req, res) => {
     const aiResponse = await axios.post(`${AI_SERVICE_URL}/generate`, {
       prompt: prompt
     }, {
-      timeout: 60000, // 60 second timeout for AI generation
+      timeout: 300000, // 5 minute timeout for AI generation
       headers: {
         'Content-Type': 'application/json'
       }

@@ -57,8 +57,9 @@ exports.handler = async (event, context) => {
       };
     }
 
+    const modelName = process.env.GEMINI_MODEL || "gemini-2.5-pro";
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: modelName });
 
     const fullPrompt = `
         You are an expert course designer. Based on the following user request, create a comprehensive course outline.
@@ -85,9 +86,9 @@ exports.handler = async (event, context) => {
 
     // Clean up markdown code blocks if present
     if (text.includes('```json')) {
-        text = text.split('```json')[1].split('```')[0].trim();
+      text = text.split('```json')[1].split('```')[0].trim();
     } else if (text.includes('```')) {
-        text = text.split('```')[1].split('```')[0].trim();
+      text = text.split('```')[1].split('```')[0].trim();
     }
 
     return {

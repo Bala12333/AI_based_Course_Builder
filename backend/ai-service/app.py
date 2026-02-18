@@ -7,14 +7,15 @@ import time
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv()
+# Load environment variables
+load_dotenv(override=True)
 
 app = Flask(__name__)
 CORS(app)
 
 # Configure Gemini API
-GEMINI_API_KEY = "AIzaSyBStjv0hH9JNCoDLJ529MNVE9rHDkuoyzI"
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-pro")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
 genai.configure(api_key=GEMINI_API_KEY)
 
 # Define the response schema for structured course generation
@@ -48,34 +49,13 @@ COURSE_SCHEMA = """
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint to verify service is running"""
-    return jsonify({"status": "healthy", "service": "AI Course Builder Service"})
+    return jsonify({"status": "healthy", "service": "AI Course Builder Service", "model": GEMINI_MODEL})
 
-@app.route('/favicon.ico', methods=['GET'])
-def favicon():
-    # 1x1 transparent PNG to prevent 404 noise in logs
-    png_bytes = bytes.fromhex(
-        '89504E470D0A1A0A0000000D49484452000000010000000108060000001F15C4890000000A49444154789C6360000002000154A2F2880000000049454E44AE426082'
-    )
-    return Response(png_bytes, mimetype='image/png')
+# ... (favicon omitted) ...
 
 @app.route('/generate', methods=['POST'])
 def generate_course():
-    """
-    Generate a structured course outline using Gemini AI
-    
-    Expected input:
-    {
-        "prompt": "string - User's course generation prompt"
-    }
-    
-    Returns:
-    {
-        "courseTitle": "string",
-        "modules": [...],
-        "lessons": [...],
-        "quizzes": [...]
-    }
-    """
+    # ... (docstring omitted) ...
     try:
         # Get request data
         data = request.get_json()
@@ -115,9 +95,23 @@ def generate_course():
 
         response = None
         tried_models = []
-        for attempt, model_name in enumerate([GEMINI_MODEL, 'gemini-pro'] if GEMINI_MODEL != 'gemini-pro' else [GEMINI_MODEL]):
+        # Priority: Configured (Pro) -> Pro Latest -> 2.5 Flash -> 2.0 Flash
+        target_models = []
+        if GEMINI_MODEL:
+             target_models.append(GEMINI_MODEL)
+        
+        # Add Pro fallbacks and then Flash fallbacks
+        fallbacks = ['gemini-2.5-pro', 'gemini-pro-latest', 'gemini-2.5-flash', 'gemini-2.0-flash']
+        for fb in fallbacks:
+            if fb not in target_models:
+                target_models.append(fb)
+
+        print(f"Attempting generation with models: {target_models}")
+
+        for attempt, model_name in enumerate(target_models):
             tried_models.append(model_name)
             try:
+                print(f"Trying model: {model_name}")
                 # Configure the model for this attempt
                 model = genai.GenerativeModel(model_name)
                 response = model.generate_content(full_prompt)
@@ -127,11 +121,23 @@ def generate_course():
                 print(f"Attempt failed with model {model_name}: {err_str}")
                 
                 if '429' in err_str or 'quota' in err_str.lower():
-                    time.sleep(2)
+                    # Respect suggested retry delay if available
+                    delay_seconds = 5
+                    # Simple parsing for "retry in X s" or "retry_delay { seconds: X }"
+                    import re
+                    # Look for "retry in 55.7s" or "seconds: 55"
+                    match = re.search(r'retry.*in\s+(\d+)', err_str) or re.search(r'seconds:\s*(\d+)', err_str)
+                    if match:
+                        delay_seconds = int(match.group(1)) + 1
+                        print(f"Quota exceeded. Waiting for {delay_seconds}s as requested by API...")
+                    else:
+                        print(f"Quota exceeded. Waiting for {delay_seconds}s (default)...")
+                    
+                    time.sleep(delay_seconds)
                     continue
                 
                 # Check if it was the last attempt
-                if attempt == (len([GEMINI_MODEL, 'gemini-pro'] if GEMINI_MODEL != 'gemini-pro' else [GEMINI_MODEL]) - 1):
+                if attempt == (len(target_models) - 1):
                     raise
         if response is None:
             return jsonify({"error": "Failed to generate response", "triedModels": tried_models}), 503
