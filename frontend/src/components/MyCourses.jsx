@@ -27,7 +27,7 @@ const MyCourses = () => {
             const token = await user.getIdToken();
 
             // Ensure we hit the API Gateway which forwards to Firestore or Local Storage
-            const response = await axios.get('/api/courses', {
+            const response = await axios.get('/api/get-courses', {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
