@@ -60,10 +60,17 @@ exports.handler = async (event, context) => {
     const genAI = new GoogleGenerativeAI(apiKey);
 
     // Fallback logic: Try configured model (Pro) -> Flash -> Stable Flash
-    const preferredModel = process.env.GEMINI_MODEL || "gemini-2.5-pro";
+    // Fallback logic: Try configured model -> 2.5 Flash -> 1.5 Flash
+    // User testing indicates gemini-2.5-flash is the most reliable free tier model currently
+    const preferredModel = process.env.GEMINI_MODEL || "gemini-2.5-flash";
     const modelsToTry = [preferredModel];
-    if (preferredModel !== "gemini-1.5-flash") {
-      modelsToTry.push("gemini-1.5-flash");
+
+    const fallbackModels = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+
+    for (const model of fallbackModels) {
+      if (!modelsToTry.includes(model)) {
+        modelsToTry.push(model);
+      }
     }
 
     let lastError = null;
